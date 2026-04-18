@@ -4,6 +4,74 @@ This folder contains utility scripts for database maintenance and cleanup operat
 
 ## Scripts
 
+### `audit-user-one-to-one-duplicates.mjs`
+
+Audits user-scoped collections that should be one document per user and reports duplicate records grouped by `userId`.
+
+#### What it does:
+- Scans configured one-to-one collections (student/faculty profile modules, PTM, complaint, feedback, etc.)
+- Finds duplicate `userId` groups and counts extra documents
+- Writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:audit-user-duplicates
+```
+
+Optional:
+
+```bash
+node scripts/audit-user-one-to-one-duplicates.mjs --source-db cmrit --collections contactdetails,parentdetails,ptmrecords
+```
+
+### `backfill-message-parents.mjs`
+
+Backfills `messages.parentType` and `messages.parentId` using parent arrays in `threads`, `privateconversations`, and `groupconversations`.
+
+#### What it does:
+- Builds message-to-parent ownership mapping from existing arrays
+- Detects cross-parent conflicts (same message id in multiple parents)
+- Dry run by default; writes a JSON report under `logs/`
+- Applies updates only when `--apply` is passed
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:backfill-message-parents
+```
+
+Apply mode:
+
+```bash
+node scripts/backfill-message-parents.mjs --apply --source-db cmrit
+```
+
+### `apply-p0-indexes.mjs`
+
+Ensures the baseline P0 indexes for user-scoped reads, semester reads, conversation retrieval, and message parent timeline queries.
+
+#### What it does:
+- Verifies index presence on target collections
+- Skips creation if equivalent index already exists
+- For unique index specs, skips when duplicate data would violate constraints
+- Dry run by default; writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:apply-p0-indexes
+```
+
+Apply mode:
+
+```bash
+node scripts/apply-p0-indexes.mjs --apply --source-db cmrit
+```
+
 ### `remove_duplicate_iat_semesters.py`
 
 Removes duplicate semester entries from IAT (Internal Assessment Test) records in MongoDB.
