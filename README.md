@@ -60,11 +60,12 @@ Make sure you have the following installed:
 	PASSWORD_SALT=12
 	JWT_SECRET= ADD_YOUR_JWT_SECRET_KEY
 	JWT_EXPIRES_IN=90d
-	JWT_COOKIE_EXPIRES_IN=90
-	EMAIL_USER= USER_EMAIL
-	EMAIL_PASS= USER_PASSWORD
-	EMAIL_HOST=smtp.mailtrap.io
-	EMAIL_PORT= EMAIL_PORT
+    JWT_COOKIE_EXPIRES_IN=90
+    RESEND_API_KEY= YOUR_RESEND_API_KEY
+    RESEND_FROM_EMAIL= Sanghathi Support <support@send.yourdomain.com>
+    RESEND_REPLY_TO= support@send.yourdomain.com
+    APP_NAME= Sanghathi
+    RESET_PASSWORD_PATH=/reset-password
 	CLIENT_HOST=http://localhost:3000
 	MONGODB_URI= YOUR_MONGODB_URI
 	SUPABASE_PRIVATE_KEY= YOUR_SUPABASE_KEY
@@ -72,6 +73,8 @@ Make sure you have the following installed:
 	PYTHON_API= http://localhost:8080
 	GOOGLE_GEMINI_API_KEY= YOUR_GEMINI_API_KEY
     ```
+
+    For production, set `CLIENT_HOST` to your public frontend origin (example: `https://app.sanghathi.com`) so password reset links in emails are valid outside localhost.
 
 4. Start the server in development mode:
 
