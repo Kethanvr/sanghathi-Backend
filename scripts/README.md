@@ -72,6 +72,35 @@ Apply mode:
 node scripts/apply-p0-indexes.mjs --apply --source-db cmrit
 ```
 
+### `enforce-one-to-one-unique-indexes.mjs`
+
+Enforces strict unique `userId` indexes for one-to-one user-scoped collections.
+
+#### What it does:
+- Audits duplicate `userId` values before index creation
+- Creates unique indexes when safe
+- Upgrades existing non-unique `userId` indexes to unique when explicitly allowed
+- Dry run by default; writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:enforce-one-to-one-unique-indexes
+```
+
+Apply mode (safe create-only):
+
+```bash
+node scripts/enforce-one-to-one-unique-indexes.mjs --apply --source-db cmrit
+```
+
+Apply mode with non-unique index upgrade:
+
+```bash
+node scripts/enforce-one-to-one-unique-indexes.mjs --apply --allow-drop-non-unique --source-db cmrit
+```
+
 ### `remove_duplicate_iat_semesters.py`
 
 Removes duplicate semester entries from IAT (Internal Assessment Test) records in MongoDB.
