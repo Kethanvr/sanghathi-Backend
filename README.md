@@ -1,171 +1,82 @@
-# Sanghathi-Backend
+# Sanghathi Backend
 
-This repository contains the backend code for the **Sanghathi** project, which manages student data and integrates with the frontend to provide a seamless experience for users. The backend is built using modern technologies, ensuring scalability, reliability, and ease of development.
+![Sanghathi App Logo](public/logo.jpeg)
 
-## Tech Stack
+Sanghathi Backend is the service layer of the Sanghathi mentoring platform. It manages authentication, role-based access, student lifecycle data, mentoring records, reporting APIs, and integrations used by the frontend.
 
-The following technologies are used in the backend:
+## Project Report
 
-- **Node.js**: JavaScript runtime for building the backend server.
-- **Express.js**: Web framework for creating RESTful APIs.
-- **MongoDB**: NoSQL database for storing application data.
-- **Mongoose**: ODM for MongoDB, providing schema validation and data modeling.
-- **Axios**: For server-to-server HTTP requests (if applicable).
-- **Dotenv**: For environment variable management.
+### 1. Project Title
+Sanghathi: AI-Powered Mentoring Tool (Backend Module)
 
-## Setup Instructions
+### 2. Abstract
+This project implements a scalable backend system for institutional mentoring workflows. It exposes REST APIs for authentication, user management, academic records, attendance, IAT and TYL scores, communication features, and notifications. The backend is designed to provide secure, consistent, and auditable data services for all role-based frontend modules.
 
-### Prerequisites
+### 3. Problem Statement
+Educational mentoring data is often fragmented across spreadsheets and disconnected systems. This leads to poor traceability, delayed decisions, and inconsistent student records. Sanghathi Backend resolves this by centralizing data and business logic through structured APIs and database models.
 
-Make sure you have the following installed:
+### 4. Objectives
+- Provide secure authentication and authorization for all user roles.
+- Expose robust APIs for student and mentorship data operations.
+- Maintain consistent data models for academic and performance records.
+- Enable report and analytics workflows through clean service endpoints.
+- Support integration-ready architecture for notifications and AI-assisted features.
 
-- **Node.js** (version 16.x or higher)
-- **npm** (comes with Node.js) or **Yarn**
-- **MongoDB** (local or cloud-based)
+### 5. Scope
+- Auth and role management services.
+- Student, mentor, and admin domain APIs.
+- Attendance, IAT, TYL, MOOC, and mini-project data endpoints.
+- Conversation, thread, and notification modules.
+- File upload and bulk data operation support.
+- Deployment-ready Node.js service configuration.
 
-### Installation
+## Technology Stack
 
-1. Clone this repository:
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT Authentication
+- Dotenv
+- Swagger
 
-    ```bash
-    git clone https://github.com/shovan-mondal/Sanghathi-Backend.git
-    cd Sanghathi-Backend
-    ```
+## Core Modules
 
-2. Install dependencies:
+1. **Authentication and authorization**: JWT login, password management, and protected role-based access.
+2. **User and role management**: Admin-controlled user and role workflows.
+3. **Student lifecycle APIs**: Profile, academic, and semester-linked records.
+4. **Score and performance APIs**: IAT, TYL, attendance, MOOC, and mini-project endpoints.
+5. **Communication services**: Thread, message, conversation, and notification APIs.
+6. **Upload and data tools**: File upload, bulk update, and rollback-capable operational flows.
+7. **API documentation and integration**: Swagger support and service-level extensibility.
 
-    For **npm**:
+## Project Outcome
 
-    ```bash
-    npm install
-    ```
+The Sanghathi Backend provides a stable and scalable API foundation for mentoring operations, enabling accurate data management, better process visibility, and reliable integration with the frontend platform.
 
-    Or, if you're using **Yarn**:
+## New Contributors
 
-    ```bash
-    yarn install
-    ```
+- [Kethan VR](https://github.com/Kethanvr)
 
-3. Create a `.env` file in the root directory and configure the following variables:
+## Contributors
 
-    ```bash
-    npm add dot env
-    ```
+- shovan-mondal
+- monu564100
+- SUJAY-HK
+- vsuryacharan
+- Kulsum06
+- Sai-Emani25
 
-    ```env
-	NODE_ENV=development
-	PORT= ADD_YOUR_BACKEND_PORT
-	USERNAME= YOUR_USERNAME
-	DATABASE_PASSWORD= YOUR_PASSWORD
-	PASSWORD_SALT=12
-	JWT_SECRET= ADD_YOUR_JWT_SECRET_KEY
-	JWT_EXPIRES_IN=90d
-    JWT_COOKIE_EXPIRES_IN=90
-    RESEND_API_KEY= YOUR_RESEND_API_KEY
-    RESEND_FROM_EMAIL= Sanghathi Support <support@send.yourdomain.com>
-    RESEND_REPLY_TO= support@send.yourdomain.com
-    APP_NAME= Sanghathi
-    RESET_PASSWORD_PATH=/reset-password
-	CLIENT_HOST=http://localhost:3000
-	MONGODB_URI= YOUR_MONGODB_URI
-	SUPABASE_PRIVATE_KEY= YOUR_SUPABASE_KEY
-	SUPABASE_URL= YOUR_SUPABASE_URL
-	PYTHON_API= http://localhost:8080
-	GOOGLE_GEMINI_API_KEY= YOUR_GEMINI_API_KEY
-    ```
+See [contribute.md](contribute.md) for contribution standards.
 
-    For production, set `CLIENT_HOST` to your public frontend origin (example: `https://app.sanghathi.com`) so password reset links in emails are valid outside localhost.
+## Doubts or Support
 
-4. Start the server in development mode:
+If you have any doubt about APIs, setup, or backend modules:
 
-    For **npm**:
-
-    ```bash
-    npm run dev
-    ```
-
-    Or, with **Yarn**:
-
-    ```bash
-    yarn dev
-    ```
-
-The server will run at `http://localhost:8000` by default.
-
-## API Endpoints
-
-### Authentication
-
-- **POST** `/auth/login`: User login.
-
-## Folder Structure
-
-```bash
-Sanghathi-Backend/
-│
-├── controllers/         # API route handlers
-├── models/              # Mongoose schemas and models
-├── routes/              # API route definitions
-├── middlewares/         # Middleware functions (e.g., auth)
-├── utils/               # Helper functions and utilities
-├── .env                 # Environment variables
-├── server.js            # Entry point for the application
-└── README.md            # Documentation
-```
-## Contributing
-
-1. Fork the repository.
-2. Create a new branch:
-
-    ```bash
-    git checkout -b feature-name
-    ```
-
-3. Make your changes and commit:
-
-    ```bash
-    git commit -m "Add feature-name"
-    ```
-
-4. Push your branch and create a pull request.
-
-## To deploy in Production 
-
-1. Install flyctl
-
-    For windows:
-    Run command in powershell:
-    ```bash
-    iwr https://fly.io/install.ps1 -useb | iex
-    ```
-
-    In macos:
-    ```bash
-    brew install flyctl
-    ```
-
-    In linux:
-    ```bash
-    curl -L https://fly.io/install.sh | sh
-    ```
-
-2. TO create fly.toml
-    To create a new fly.toml file
-    ```bash
-    flyctl launch
-    ```
-    or
-
-    To download from the existing fly.toml file
-    ```bash
-    flyctl config save -a <existing-app-name>
-    ```
-
-3. To deploy production 
-    ```bash
-    fly deploy
-    ```
+1. Open an issue with title prefix `Question:`.
+2. Mention endpoint path and HTTP method.
+3. Add request payload, response/error, and reproduction steps.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
