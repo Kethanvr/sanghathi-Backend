@@ -23,11 +23,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -40,7 +40,16 @@ jobs:
         run: npm run build
 
       - name: Set up Fly CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Validate Fly token
+        run: |
+          if [[ -z "${FLY_API_TOKEN:-}" ]]; then
+            echo "FLY_API_TOKEN is missing. Add it to GitHub Secrets before running this workflow."
+            exit 1
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Resolve Fly app name
         id: app
