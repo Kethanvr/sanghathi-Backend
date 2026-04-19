@@ -112,6 +112,7 @@ Ingests local CSV/XLSX files into the `iats` collection for a target semester (d
 - Plans `insert / append-semester / replace-semester` operations in `iats`
 - Writes JSON report under `logs/iat-ingest/`
 - In apply mode, writes rollback manifest under `logs/iat-ingest/`
+- In apply mode, records a `local-script` upload session for `/admin/upload-history`
 
 #### How to run:
 
@@ -135,6 +136,8 @@ Optional flags:
 --sheet <sheetName>      # Specific sheet in workbook (defaults to first sheet)
 --source-uri <uri>       # Override MONGODB_URI
 --source-db <dbName>     # Override database name
+--admin-user-id <id>     # Optional admin user id for history attribution
+--admin-email <email>    # Optional admin email for history attribution
 ```
 
 ### `rollback-iat-local.mjs`
