@@ -1,0 +1,72 @@
+name: Backend Deploy (Fly.io)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: Fly app name
+        required: true
+        default: e-mithru-backend
+        type: string
+  push:
+    branches: [main]
+
+concurrency:
+  group: backend-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Set up Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Validate Fly token
+        run: |
+          if [[ -z "${FLY_API_TOKEN:-}" ]]; then
+            echo "FLY_API_TOKEN is missing. Add it to GitHub Secrets before running this workflow."
+            exit 1
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Resolve Fly app name
+        id: app
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.app_name }}" ]]; then
+            echo "name=${{ inputs.app_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=e-mithru-backend" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy -a "${{ steps.app.outputs.name }}" --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets['FLY_API_TOKEN'] }}
+
+      - name: Deployment Success
+        run: |
+          echo "✅ Backend deployed successfully"
+          echo "🌐 App: ${{ steps.app.outputs.name }}"
+          echo "🔗 URL: https://${{ steps.app.outputs.name }}.fly.dev"
