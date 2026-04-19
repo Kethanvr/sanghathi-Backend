@@ -101,6 +101,68 @@ Apply mode with non-unique index upgrade:
 node scripts/enforce-one-to-one-unique-indexes.mjs --apply --allow-drop-non-unique --source-db cmrit
 ```
 
+### `ingest-iat-local.mjs`
+
+Ingests local CSV/XLSX files into the `iats` collection for a target semester (default: 6), with safe dry-run first and apply mode only when explicitly requested.
+
+#### What it does:
+- Reads local file data (CSV/XLSX) and auto-detects header row
+- Supports both row-wise and wide-sheet subject layouts
+- Resolves `USN -> userId` using `studentprofiles`
+- Plans `insert / append-semester / replace-semester` operations in `iats`
+- Writes JSON report under `logs/iat-ingest/`
+- In apply mode, writes rollback manifest under `logs/iat-ingest/`
+
+#### How to run:
+
+Dry run (recommended first):
+
+```bash
+cd sanghathi-Backend
+npm run db:ingest-iat-local -- --file ./data/iat/6th-sem.xlsx --semester 6
+```
+
+Apply mode:
+
+```bash
+cd sanghathi-Backend
+npm run db:ingest-iat-local -- --file ./data/iat/6th-sem.xlsx --semester 6 --apply
+```
+
+Optional flags:
+
+```bash
+--sheet <sheetName>      # Specific sheet in workbook (defaults to first sheet)
+--source-uri <uri>       # Override MONGODB_URI
+--source-db <dbName>     # Override database name
+```
+
+### `rollback-iat-local.mjs`
+
+Rolls back a prior `ingest-iat-local.mjs --apply` run using the generated manifest.
+
+#### What it does:
+- Reads manifest from `logs/iat-ingest/iat-ingest-manifest-*.json`
+- Dry run by default (preview only)
+- In apply mode, restores previous IAT docs or removes docs inserted by ingest
+- Writes rollback report under `logs/iat-ingest/`
+
+#### How to run:
+
+Dry run:
+
+```bash
+cd sanghathi-Backend
+npm run db:rollback-iat-local -- --manifest ./logs/iat-ingest/iat-ingest-manifest-<timestamp>.json
+```
+
+Apply rollback:
+
+```bash
+cd sanghathi-Backend
+npm run db:rollback-iat-local -- --manifest ./logs/iat-ingest/iat-ingest-manifest-<timestamp>.json --apply
+```
+
 ### `remove_duplicate_iat_semesters.py`
 
 Removes duplicate semester entries from IAT (Internal Assessment Test) records in MongoDB.
