@@ -4,6 +4,168 @@ This folder contains utility scripts for database maintenance and cleanup operat
 
 ## Scripts
 
+### `audit-user-one-to-one-duplicates.mjs`
+
+Audits user-scoped collections that should be one document per user and reports duplicate records grouped by `userId`.
+
+#### What it does:
+- Scans configured one-to-one collections (student/faculty profile modules, PTM, complaint, feedback, etc.)
+- Finds duplicate `userId` groups and counts extra documents
+- Writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:audit-user-duplicates
+```
+
+Optional:
+
+```bash
+node scripts/audit-user-one-to-one-duplicates.mjs --source-db cmrit --collections contactdetails,parentdetails,ptmrecords
+```
+
+### `backfill-message-parents.mjs`
+
+Backfills `messages.parentType` and `messages.parentId` using parent arrays in `threads`, `privateconversations`, and `groupconversations`.
+
+#### What it does:
+- Builds message-to-parent ownership mapping from existing arrays
+- Detects cross-parent conflicts (same message id in multiple parents)
+- Dry run by default; writes a JSON report under `logs/`
+- Applies updates only when `--apply` is passed
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:backfill-message-parents
+```
+
+Apply mode:
+
+```bash
+node scripts/backfill-message-parents.mjs --apply --source-db cmrit
+```
+
+### `apply-p0-indexes.mjs`
+
+Ensures the baseline P0 indexes for user-scoped reads, semester reads, conversation retrieval, and message parent timeline queries.
+
+#### What it does:
+- Verifies index presence on target collections
+- Skips creation if equivalent index already exists
+- For unique index specs, skips when duplicate data would violate constraints
+- Dry run by default; writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:apply-p0-indexes
+```
+
+Apply mode:
+
+```bash
+node scripts/apply-p0-indexes.mjs --apply --source-db cmrit
+```
+
+### `enforce-one-to-one-unique-indexes.mjs`
+
+Enforces strict unique `userId` indexes for one-to-one user-scoped collections.
+
+#### What it does:
+- Audits duplicate `userId` values before index creation
+- Creates unique indexes when safe
+- Upgrades existing non-unique `userId` indexes to unique when explicitly allowed
+- Dry run by default; writes a JSON report under `logs/`
+
+#### How to run:
+
+```bash
+cd sanghathi-Backend
+npm run db:enforce-one-to-one-unique-indexes
+```
+
+Apply mode (safe create-only):
+
+```bash
+node scripts/enforce-one-to-one-unique-indexes.mjs --apply --source-db cmrit
+```
+
+Apply mode with non-unique index upgrade:
+
+```bash
+node scripts/enforce-one-to-one-unique-indexes.mjs --apply --allow-drop-non-unique --source-db cmrit
+```
+
+### `ingest-iat-local.mjs`
+
+Ingests local CSV/XLSX files into the `iats` collection for a target semester (default: 6), with safe dry-run first and apply mode only when explicitly requested.
+
+#### What it does:
+- Reads local file data (CSV/XLSX) and auto-detects header row
+- Supports both row-wise and wide-sheet subject layouts
+- Resolves `USN -> userId` using `studentprofiles`
+- Plans `insert / append-semester / replace-semester` operations in `iats`
+- Writes JSON report under `logs/iat-ingest/`
+- In apply mode, writes rollback manifest under `logs/iat-ingest/`
+- In apply mode, records a `local-script` upload session for `/admin/upload-history`
+
+#### How to run:
+
+Dry run (recommended first):
+
+```bash
+cd sanghathi-Backend
+npm run db:ingest-iat-local -- --file ./data/iat/6th-sem.xlsx --semester 6
+```
+
+Apply mode:
+
+```bash
+cd sanghathi-Backend
+npm run db:ingest-iat-local -- --file ./data/iat/6th-sem.xlsx --semester 6 --apply
+```
+
+Optional flags:
+
+```bash
+--sheet <sheetName>      # Specific sheet in workbook (defaults to first sheet)
+--source-uri <uri>       # Override MONGODB_URI
+--source-db <dbName>     # Override database name
+--admin-user-id <id>     # Optional admin user id for history attribution
+--admin-email <email>    # Optional admin email for history attribution
+```
+
+### `rollback-iat-local.mjs`
+
+Rolls back a prior `ingest-iat-local.mjs --apply` run using the generated manifest.
+
+#### What it does:
+- Reads manifest from `logs/iat-ingest/iat-ingest-manifest-*.json`
+- Dry run by default (preview only)
+- In apply mode, restores previous IAT docs or removes docs inserted by ingest
+- Writes rollback report under `logs/iat-ingest/`
+
+#### How to run:
+
+Dry run:
+
+```bash
+cd sanghathi-Backend
+npm run db:rollback-iat-local -- --manifest ./logs/iat-ingest/iat-ingest-manifest-<timestamp>.json
+```
+
+Apply rollback:
+
+```bash
+cd sanghathi-Backend
+npm run db:rollback-iat-local -- --manifest ./logs/iat-ingest/iat-ingest-manifest-<timestamp>.json --apply
+```
+
 ### `remove_duplicate_iat_semesters.py`
 
 Removes duplicate semester entries from IAT (Internal Assessment Test) records in MongoDB.

@@ -12,12 +12,12 @@ const ThreadSchema = new mongoose.Schema({
   },
   author: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Users",
+    ref: "User",
   },
   participants: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
+      ref: "User",
     },
   ],
   status: {
@@ -45,5 +45,10 @@ const ThreadSchema = new mongoose.Schema({
     type: Date,
   },
 });
+
+ThreadSchema.index({ participants: 1, createdAt: -1 });
+ThreadSchema.index({ author: 1, createdAt: -1 });
+ThreadSchema.index({ status: 1, createdAt: -1 });
+ThreadSchema.index({ topic: 1, status: 1, createdAt: -1 });
 
 export default mongoose.model("Thread", ThreadSchema);

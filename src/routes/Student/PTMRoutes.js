@@ -1,8 +1,12 @@
 import { Router } from "express";
-const router = Router();
-
 import StudentRecordSchema from "../../zod/PTM.js";
 import PTMRecord from "../../models/Student/PTM.js";
+import { protect } from "../../controllers/authController.js";
+
+import logger from "../../utils/logger.js";
+const router = Router();
+
+router.use(protect);
 
 router.get("/:id", async (req, res) => {
 	try {
@@ -12,7 +16,7 @@ router.get("/:id", async (req, res) => {
 		}
 		res.json(records);
 	} catch (error) {
-		console.error(error.message);
+		logger.error(error.message);
 		res.status(500).send("Server Error");
 	}
 });
@@ -21,11 +25,11 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
 	const ptmData = {
 		userId: req.body.userId,
-		counsellingRecords: req.body.counsellingRecords.map((record) => ({
+		counsellingRecords: (req.body.counsellingRecords || []).map((record) => ({
 			date: record.date,
 			details: record.details,
 		})),
-		telephonicConversations: req.body.telephonicConversations.map(
+		telephonicConversations: (req.body.telephonicConversations || []).map(
 			(conversation) => ({
 				date: conversation.date,
 				phoneNo: conversation.phoneNo,
@@ -33,7 +37,7 @@ router.post("/", async (req, res) => {
 				remarks: conversation.remarks,
 			})
 		),
-		parentTeacherMeetings: req.body.parentTeacherMeetings.map((meeting) => ({
+		parentTeacherMeetings: (req.body.parentTeacherMeetings || []).map((meeting) => ({
 			meetingNo: meeting.meetingNo,
 			reason: meeting.reason,
 			conclusion: meeting.conclusion,
@@ -42,9 +46,23 @@ router.post("/", async (req, res) => {
 
 	try {
 		const validate = StudentRecordSchema.safeParse(ptmData);
-		const newRecord = new PTMRecord(ptmData);
-		await newRecord.save();
-		res.status(201).json(newRecord);
+		if (!validate.success) {
+			return res.status(400).json({ error: validate.error.errors });
+		}
+
+		const existed = await PTMRecord.exists({ userId: ptmData.userId });
+		const savedRecord = await PTMRecord.findOneAndUpdate(
+			{ userId: ptmData.userId },
+			{ $set: ptmData },
+			{
+				new: true,
+				upsert: true,
+				runValidators: true,
+				setDefaultsOnInsert: true,
+			}
+		);
+
+		res.status(existed ? 200 : 201).json(savedRecord);
 	} catch (error) {
 		res.status(400).json({ error: error.message });
 	}

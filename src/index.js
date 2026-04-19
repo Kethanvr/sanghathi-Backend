@@ -1,9 +1,10 @@
 import express, { json } from "express";
-import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
+import xss from "xss-clean";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import AppError from "./utils/appError.js";
 import globalErrorHandler from "./controllers/errorController.js";
 import path from "path";
@@ -55,6 +56,8 @@ import testUploadRouter from "./routes/testUploadRoute.js";
 import projectRoutes from "./routes/Placements/ProjectRoutes.js";
 import feedbackRoutes from "./routes/Feedback/feedbackRoutes.js";
 import ComplaintRoutes from "./routes/Complain/ComplaintRoutes.js";
+import formDraftRoutes from "./routes/formDraftRoutes.js";
+import uploadHistoryRoutes from "./routes/Admin/uploadHistoryRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,7 +89,6 @@ app.use(
     contentSecurityPolicy: false,
   })
 );
-app.use(morgan("dev"));
 
 const limiter = rateLimit({
   max: 3000, // Example: 5000 requests per hour per IP
@@ -101,13 +103,13 @@ app.use("/api", limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(json({ limit: '50mb' }));
+app.use(cookieParser());
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
 
-//TODO : Find out how can we sanitize request, this library is outdated
 // Data sanitization against XSS
-// app.use(xss());
+app.use(xss());
 
 // Mount routes
 app.use("/api/ask", campubuddyroute);
@@ -129,7 +131,6 @@ app.use("/api/students/academic", academicRouter);
 app.use("/api/students/admissions", admissionRouter);
 app.use("/api/student-profiles", studentProfileRoutes);
 app.use("/api/students/ptm", ptmRouter);
-app.use("/api/test-summary", testSummaryRoutes);
 app.use("/api/v1/local-guardians", localGuardianRoutes);
 app.use("/api/v1/admissions", admissionRoutes);
 app.use("/api/v1/contact-details", contactDetailsRoutes);
@@ -152,21 +153,29 @@ app.use("/api/internship", internshipRoutes);
 
 // Register routes
 app.use("/api/v1/upload", uploadRouter);
-app.use("/api/test", testUploadRouter);
 
 app.use("/api/feedback",feedbackRoutes);
 app.use("/api/complaint", ComplaintRoutes);
+app.use("/api/forms", formDraftRoutes);
+app.use("/api/admin", uploadHistoryRoutes);
 
-// Serve the test HTML file
-app.get('/test-upload', (req, res) => {
-  const testHtmlPath = path.join(__dirname, '..', 'test-upload.html');
-  
-  if (fs.existsSync(testHtmlPath)) {
-    res.sendFile(testHtmlPath);
-  } else {
-    res.status(404).send('Test file not found');
-  }
-});
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api/test-summary", testSummaryRoutes);
+  app.use("/api/test", testUploadRouter);
+
+  // Serve the test HTML file in non-production environments only.
+  app.get("/test-upload", (req, res) => {
+    const testHtmlPath = path.join(__dirname, "..", "test-upload.html");
+
+    if (fs.existsSync(testHtmlPath)) {
+      res.sendFile(testHtmlPath);
+    } else {
+      res.status(404).send("Test file not found");
+    }
+  });
+}
+
+swaggerDocs(app);
 
 // Handle non-existing routes
 app.all("*", (req, res, next) => {

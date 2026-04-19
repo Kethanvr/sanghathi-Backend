@@ -8,15 +8,78 @@ import { encrypt, compare } from "../utils/passwordHelper.js";
 import mongoose from "mongoose";
 import { createHash } from "crypto";
 
+const parseBoolean = (value, defaultValue = true) => {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "0", "no", "off"].includes(normalized)) {
+      return false;
+    }
+    if (["true", "1", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+  }
+
+  return Boolean(value);
+};
+
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const sanitizeSelectFields = (rawFields, allowedFields, fallbackFields) => {
+  if (!rawFields || typeof rawFields !== "string") {
+    return fallbackFields;
+  }
+
+  const fields = rawFields
+    .split(",")
+    .map((field) => field.trim())
+    .filter((field) => field.length > 0 && allowedFields.has(field));
+
+  return fields.length ? fields.join(" ") : fallbackFields;
+};
+
 
 // Get all users with optional role filtering
 export const getAllUsers = catchAsync(async (req, res, next) => {
-  const { role } = req.query;
+  const { role, q, fields } = req.query;
+  const includeProfiles = parseBoolean(req.query.includeProfiles, true);
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+  const skip = (page - 1) * limit;
+
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const allowedUserFields = new Set([
+    "_id",
+    "name",
+    "email",
+    "phone",
+    "avatar",
+    "photo",
+    "role",
+    "roleName",
+    "profile",
+    "status",
+    "lastActivity",
+    "department",
+    "sem",
+    "usn",
+    "cabin",
+  ]);
+
+  const selectedUserFields = sanitizeSelectFields(
+    fields,
+    allowedUserFields,
+    fallbackUserFields
+  );
+
   let filter = {};
 
   // If a role is provided in the query, filter by role
   if (role) {
-    const roleDoc = await Role.findOne({ name: role });
+    const roleDoc = await Role.findOne({ name: role }).select("_id").lean();
 
     // If no valid role is found, throw an error
     if (!roleDoc) {
@@ -27,17 +90,58 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
     filter.role = roleDoc._id;
   }
 
+  if (q && typeof q === "string") {
+    const escapedSearch = escapeRegex(q.trim());
+    if (escapedSearch) {
+      const searchRegex = new RegExp(escapedSearch, "i");
+      filter.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+      ];
+    }
+  }
+
   // Get all users with profile data
-  const users = await User.find(filter)
-    .populate("role")
-    .lean();
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .select(selectedUserFields)
+      .sort({ name: 1, _id: 1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({ path: "role", select: "name permissions" })
+      .lean(),
+    User.countDocuments(filter),
+  ]);
 
   if (users.length === 0) {
     return res.status(200).json({
       status: "success",
       results: 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
       data: {
         users: [],
+      },
+    });
+  }
+
+  if (!includeProfiles) {
+    return res.status(200).json({
+      status: "success",
+      results: users.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
+      data: {
+        users,
       },
     });
   }
@@ -48,12 +152,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   // Fetch student profiles
   const studentProfiles = await mongoose.model('StudentProfile').find({ 
     userId: { $in: userIds } 
-  }).lean();
+  }).select("userId department sem usn photo").lean();
   
   // Fetch faculty profiles
   const facultyProfiles = await mongoose.model('FacultyProfile').find({ 
     userId: { $in: userIds } 
-  }).lean();
+  }).select("userId department cabin photo").lean();
   
   // Create maps for quick lookup
   const studentProfileMap = {};
@@ -77,9 +181,17 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
       enhancedUser.department = studentProfile.department;
       enhancedUser.sem = studentProfile.sem;
       enhancedUser.usn = studentProfile.usn;
+      enhancedUser.photo = studentProfile.photo || null;
+      if (studentProfile.photo) {
+        enhancedUser.avatar = studentProfile.photo;
+      }
     } else if (user.roleName === 'faculty' && facultyProfile) {
       enhancedUser.department = facultyProfile.department;
       enhancedUser.cabin = facultyProfile.cabin;
+      enhancedUser.photo = facultyProfile.photo || null;
+      if (facultyProfile.photo) {
+        enhancedUser.avatar = facultyProfile.photo;
+      }
     }
     
     return enhancedUser;
@@ -88,6 +200,12 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
   return res.status(200).json({
     status: "success",
     results: enhancedUsers.length,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(Math.ceil(total / limit), 1),
+    },
     data: {
       users: enhancedUsers,
     },
@@ -95,17 +213,111 @@ export const getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 // Get user by ID (not yet implemented, could return an error or be defined later)
-export function getUser(req, res) {
-  res.status(500).json({
-    status: "error",
-    message: "This route is not yet defined!!",
+export const getUser = catchAsync(async (req, res, next) => {
+  const { id: userId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return next(new AppError("Invalid user ID", 400));
+  }
+
+  const includeProfiles = parseBoolean(
+    req.query.includeProfiles ?? req.query.includeProfile,
+    true
+  );
+
+  const fallbackUserFields = "name email phone avatar role roleName profile status lastActivity";
+  const allowedUserFields = new Set([
+    "_id",
+    "name",
+    "email",
+    "phone",
+    "avatar",
+    "photo",
+    "role",
+    "roleName",
+    "profile",
+    "status",
+    "lastActivity",
+    "department",
+    "sem",
+    "usn",
+    "cabin",
+  ]);
+
+  const selectedUserFields = sanitizeSelectFields(
+    req.query.fields,
+    allowedUserFields,
+    fallbackUserFields
+  );
+
+  const user = await User.findById(userId)
+    .select(selectedUserFields)
+    .populate({ path: "role", select: "name permissions" })
+    .lean();
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  if (!includeProfiles) {
+    return res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  }
+
+  const [studentProfile, facultyProfile] = await Promise.all([
+    mongoose
+      .model("StudentProfile")
+      .findOne({ userId: user._id })
+      .select("department sem usn photo")
+      .lean(),
+    mongoose
+      .model("FacultyProfile")
+      .findOne({ userId: user._id })
+      .select("department cabin photo")
+      .lean(),
+  ]);
+
+  const enhancedUser = { ...user };
+
+  if (studentProfile) {
+    enhancedUser.department = studentProfile.department;
+    enhancedUser.sem = studentProfile.sem;
+    enhancedUser.usn = studentProfile.usn;
+    enhancedUser.photo = studentProfile.photo || null;
+    if (studentProfile.photo) {
+      enhancedUser.avatar = studentProfile.photo;
+    }
+  }
+
+  if (facultyProfile) {
+    if (!enhancedUser.department) {
+      enhancedUser.department = facultyProfile.department;
+    }
+    enhancedUser.cabin = facultyProfile.cabin;
+    if (!enhancedUser.photo) {
+      enhancedUser.photo = facultyProfile.photo || null;
+    }
+    if (facultyProfile.photo) {
+      enhancedUser.avatar = facultyProfile.photo;
+    }
+  }
+
+  return res.status(200).json({
+    status: "success",
+    data: {
+      user: enhancedUser,
+    },
   });
-}
+});
 
 // Create a new user
 export async function createUser(req, res, next) {
   try {
-    console.log("Received Data:", req.body); // Debugging log
+    logger.info("Received Data:", req.body); // Debugging log
 
     const { name, email, phone, avatar, role, roleName, profile, password, passwordConfirm } = req.body;
 
@@ -141,7 +353,7 @@ export async function createUser(req, res, next) {
       },
     });
   } catch (err) {
-    console.error("Error in createUser:", err);
+    logger.error("Error in createUser:", err);
     next(new AppError(err.message || "Error creating user", 500));
   }
 }
@@ -213,14 +425,16 @@ export const getUserByUSN = async (req, res) => {
     
     // First, find the student profile with this USN
     const StudentProfile = mongoose.model("StudentProfile");
-    const studentProfile = await StudentProfile.findOne({ usn });
+    const studentProfile = await StudentProfile.findOne({ usn })
+      .select("userId")
+      .lean();
     
     if (!studentProfile) {
       return res.status(404).json({ message: "Student profile with this USN not found" });
     }
     
     // Find the user associated with this profile - using the userId field in the StudentProfile
-    const user = await User.findById(studentProfile.userId);
+    const user = await User.findById(studentProfile.userId).select("_id").lean();
     
     if (!user) {
       return res.status(404).json({ message: "User associated with this USN not found" });
@@ -228,7 +442,7 @@ export const getUserByUSN = async (req, res) => {
     
     res.json({ userId: user._id });
   } catch (error) {
-    console.error("Error in getUserByUSN:", error);
+    logger.error("Error in getUserByUSN:", error);
     res.status(500).json({ message: error.message });
   }
 };

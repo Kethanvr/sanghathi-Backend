@@ -8,7 +8,9 @@ import AppError from "../utils/appError.js";
 import sendEmail from "../utils/email.js";
 import { compare } from "../utils/passwordHelper.js";
 import { createHash } from "crypto";
+import { buildPasswordResetEmailTemplate } from "../templates/passwordResetEmailTemplate.js";
 
+import logger from "../utils/logger.js";
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
@@ -114,7 +116,7 @@ export const createUser = catchAsync(async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("Error creating user:", error); // Log the error details
+    logger.error("Error creating user:", error); // Log the error details
     return next(new AppError("Failed to create user", 500));
   }
 });
@@ -147,6 +149,10 @@ export const protect = catchAsync(async (req, res, next) => {
     req.headers.authorization.startsWith("Bearer")
   ) {
     token = req.headers.authorization.split(" ")[1];
+  }
+
+  if (!token && req.cookies?.jwt) {
+    token = req.cookies.jwt;
   }
 
   if (!token) {
@@ -192,47 +198,93 @@ export const restrictTo = (...roles) => {
 // Forgot Password
 // controllers/authController.js - Update forgotPassword function
 export const forgotPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ email: req.body.email });
+  const normalizedEmail = req.body.email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return next(new AppError("Please provide your email address.", 400));
+  }
+
+  const user = await User.findOne({ email: normalizedEmail });
+
+  const genericResponseMessage =
+    "If an account exists with this email, a reset link has been sent.";
 
   if (!user) {
-    return next(new AppError("There is no user with that email address.", 404));
+    return res.status(200).json({
+      status: "success",
+      message: genericResponseMessage,
+    });
   }
 
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  // CHANGE THIS: Point to your React frontend, not the API
-const resetURL = `${process.env.CLIENT_HOST}/resetPassword/${resetToken}`;
-  
-  // For production, use environment variables
-  // const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+  const clientHostInput = (process.env.CLIENT_HOST || "").trim();
+  if (!clientHostInput) {
+    return next(
+      new AppError(
+        "CLIENT_HOST is not configured. Unable to build reset password URL.",
+        500
+      )
+    );
+  }
 
-  const message = `Forgot your password? Click the link below to reset it:\n\n${resetURL}\n\nIf you didn't forget your password, please ignore this email.`;
+  let clientHost;
 
-  const htmlMessage = `
-    <h2>Password Reset Request</h2>
-    <p>Hi ${user.name},</p>
-    <p>You requested a password reset. Click the link below to reset your password:</p>
-    <a href="${resetURL}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
-    <p>Or copy and paste this link in your browser:</p>
-    <p>${resetURL}</p>
-    <p>This link will expire in 10 minutes.</p>
-    <p>If you didn't request this, please ignore this email.</p>
-    <br>
-    <p>Best regards,<br>Sanghathi Team</p>
-  `;
+  try {
+    const parsedClientHost = new URL(clientHostInput);
+    clientHost = `${parsedClientHost.protocol}//${parsedClientHost.host}`.replace(
+      /\/+$/,
+      ""
+    );
+
+    if (
+      process.env.NODE_ENV === "production" &&
+      ["localhost", "127.0.0.1", "::1"].includes(parsedClientHost.hostname)
+    ) {
+      return next(
+        new AppError(
+          "CLIENT_HOST cannot be a localhost URL in production reset emails.",
+          500
+        )
+      );
+    }
+  } catch (urlError) {
+    return next(
+      new AppError(
+        "CLIENT_HOST must be a valid absolute URL (for example, https://app.sanghathi.com).",
+        500
+      )
+    );
+  }
+
+  const resetPath = process.env.RESET_PASSWORD_PATH || "/reset-password";
+  const normalizedResetPath = resetPath.startsWith("/")
+    ? resetPath
+    : `/${resetPath}`;
+  const resetURL = `${clientHost}${normalizedResetPath}/${resetToken}`;
+  const appName = process.env.APP_NAME || "Sanghathi";
+  const supportEmail = process.env.RESEND_REPLY_TO || "support@sanghathi.com";
+
+  const emailTemplate = buildPasswordResetEmailTemplate({
+    userName: user.name,
+    resetURL,
+    appName,
+    supportEmail,
+  });
 
   try {
     await sendEmail({
       email: user.email,
-      subject: "Your password reset token (valid for 10 minutes)",
-      message: message,
-      html: htmlMessage
+      subject: emailTemplate.subject,
+      message: emailTemplate.message,
+      html: emailTemplate.html,
+      replyTo: supportEmail,
     });
 
     res.status(200).json({
       status: "success",
-      message: "Token sent to email!",
+      message: genericResponseMessage,
     });
   } catch (err) {
     user.passwordResetToken = undefined;

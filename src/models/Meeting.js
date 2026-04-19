@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 const { Schema, model } = mongoose;
 const meetingSchema = new Schema({
-  recipients: [{ type: Schema.Types.ObjectId, ref: "Users" }],
+  recipients: [{ type: Schema.Types.ObjectId, ref: "User" }],
   title: {
     type: String,
     required: true,
@@ -23,6 +23,9 @@ const meetingSchema = new Schema({
     required: true,
   },
 });
+
+meetingSchema.index({ recipients: 1, start: -1 });
+meetingSchema.index({ type: 1, start: -1 });
 
 const Meeting = model("meeting", meetingSchema);
 
