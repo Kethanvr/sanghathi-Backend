@@ -11,6 +11,7 @@ import {
 
 const threadService = new ThreadService();
 
+
 const collectThreadUserIds = (threads = []) => {
   const userIds = [];
 
@@ -29,6 +30,7 @@ const collectThreadUserIds = (threads = []) => {
       });
     }
   });
+
 
   return userIds;
 };
@@ -118,6 +120,8 @@ export const createNewThread = catchAsync(async (req, res, next) => {
   });
 });
 
+
+
 export const getAllThreads = catchAsync(async (req, res, next) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
@@ -130,6 +134,7 @@ export const getAllThreads = catchAsync(async (req, res, next) => {
   if (req.query.topic) {
     filter.topic = req.query.topic;
   }
+
 
   const [threads, total] = await Promise.all([
     Thread.find(filter)
@@ -177,6 +182,7 @@ export const getThreadById = catchAsync(async (req, res, next) => {
   const messageSkip = (messagePage - 1) * messageLimit;
 
   const messageFilter = { parentType: "thread", parentId: threadId };
+
 
   const [thread, latestMessages, totalMessages] = await Promise.all([
     Thread.findById(threadId)
@@ -281,7 +287,19 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
     Thread.countDocuments(filter),
   ]);
 
+
+
+
+
+
+
   const enrichedThreads = await enrichThreadsWithProfilePhotos(threads);
+
+
+
+
+
+
 
   res.status(200).json({
     status: "success",
@@ -297,3 +315,4 @@ export const getAllThreadsOfUser = catchAsync(async (req, res, next) => {
     },
   });
 });
+

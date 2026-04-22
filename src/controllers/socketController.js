@@ -5,9 +5,10 @@ class SocketController {
     return (room) => {
       logger.info(`User ${socket.id} joining room ${room}`);
       socket.join(room);
-
+ 
       // Get the clients in a room
       const clientsInRoom = socket.adapter.rooms.get(room);
+ 
 
       // Check if there are clients in the room
       if (clientsInRoom) {
@@ -15,6 +16,9 @@ class SocketController {
         const userIdsInRoom = [...clientsInRoom].map(
           (clientId) => socket.server.sockets.sockets.get(clientId).id
         );
+
+
+
 
         // Log the userIds
         logger.info(`Users in room ${room}: ${userIdsInRoom.join(", ")}`);
@@ -46,11 +50,13 @@ class SocketController {
     };
   }
 
+  
   disconnect(socket) {
     return () => {
       logger.info(`Socket disconnected: ${socket.id}`);
     };
   }
+
 
   handleEvents(socket) {
     socket.on("join_room", this.joinRoom(socket));
