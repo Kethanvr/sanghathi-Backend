@@ -7,9 +7,9 @@ const router = express.Router();
 router.use(protect);
 
 // Route to get a role by name - restricted
-router.get('/:role', restrictTo("admin", "hod", "director"), getRoleByName);
+router.get('/roles/:role', restrictTo("admin", "hod", "director"), getRoleByName);
 
 // Route to get all roles - less restricted
-router.get('/', restrictTo("faculty", "admin", "hod", "director"), getAllRoles);
+router.get('/roles', restrictTo("faculty", "admin", "hod", "director"), getAllRoles);
 
 export default router;
