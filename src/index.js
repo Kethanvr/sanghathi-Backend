@@ -86,7 +86,12 @@ app.use("/src/images", express.static(path.join("src", "images")));
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "static.cloudflareinsights.com"],
+      },
+    },
   })
 );
 
