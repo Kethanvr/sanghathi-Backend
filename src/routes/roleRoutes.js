@@ -5,12 +5,11 @@ import { protect, restrictTo } from "../controllers/authController.js";
 const router = express.Router();
 
 router.use(protect);
-router.use(restrictTo("admin", "hod", "director"));
 
-// Route to get a role by name
-router.get('/roles/:role', getRoleByName);
+// Route to get a role by name - restricted
+router.get('/roles/:role', restrictTo("admin", "hod", "director"), getRoleByName);
 
-// Route to get all roles
-router.get('/roles', getAllRoles);
+// Route to get all roles - less restricted
+router.get('/roles', restrictTo("faculty", "admin", "hod", "director"), getAllRoles);
 
 export default router;
